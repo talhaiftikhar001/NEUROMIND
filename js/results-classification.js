@@ -12,9 +12,17 @@ function getPiIp() {
     return localStorage.getItem('pi_ip') || '';
 }
 
+function getPiPort() {
+    if (typeof PiConnect !== 'undefined' && PiConnect.config?.port) {
+        return PiConnect.config.port;
+    }
+    return localStorage.getItem('pi_port') || '5001';
+}
+
 function getClassifyUrl() {
     const ip = getPiIp();
-    return ip ? `http://${ip}:5001/classify` : '';
+    const port = getPiPort();
+    return ip ? `http://${ip}:${port}/classify` : '';
 }
 
 // ── Category from final label string ─────────────────────────
@@ -102,10 +110,20 @@ async function runAnalysis() {
             body: JSON.stringify({}),
         });
 
-        if (!response.ok) throw new Error(`Server error: HTTP ${response.status}`);
-       // console.log(JSON.stringify(data));
+        const responseText = await response.text();
 
-        const data = await response.json();
+        if (!response.ok) {
+            let errorMessage = `Server error: HTTP ${response.status}`;
+            try {
+                const errorData = JSON.parse(responseText);
+                errorMessage = errorData.error || errorData.message || errorMessage;
+            } catch {
+                if (responseText.trim()) errorMessage = responseText.trim();
+            }
+            throw new Error(errorMessage);
+        }
+
+        const data = JSON.parse(responseText);
 
         // wake_server returns: { success, result:{...}, timing }
         if (!data.success) throw new Error(data.error || 'Classification failed on Pi');

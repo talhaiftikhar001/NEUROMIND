@@ -8,6 +8,13 @@
         return localStorage.getItem('pi_ip') || '';
     }
 
+    // Debug logger for Pi request flow. Toggle to false to silence logs.
+    const PI_DEBUG = true;
+    function debugPi(stage, data) {
+        if (!PI_DEBUG) return;
+        console.log(`[PiDebug][${new Date().toISOString()}] ${stage}`, data || '');
+    }
+
     // Check if Pi is connected
     function isPiConnected() {
         const ip = getPiIp();
@@ -103,6 +110,15 @@
         }
 
         try {
+            debugPi('upload.flow.start', {
+                ip: piIp,
+                wakeUrl: getPiWakeUrl(),
+                uploadUrl: getPiUploadUrl(),
+                shutdownUrl: getPiShutdownUrl(),
+                file: file.name,
+                size: file.size
+            });
+
             // ── STEP 1: Wake Pi server ──
             uploadArea.classList.add('uploading');
             uploadIcon.className = 'fas fa-spinner fa-spin upload-icon';
@@ -113,7 +129,9 @@
 
             // ✅ FIX: Add 'Accept' and 'Content-Type' headers + empty JSON body
             //         so Flask never gets a bad request on the /wake endpoint
-            const wakeResponse = await fetch(getPiWakeUrl(), {
+            const wakeUrl = getPiWakeUrl();
+            debugPi('wake.request', { url: wakeUrl, method: 'POST' });
+            const wakeResponse = await fetch(wakeUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -122,9 +140,15 @@
                 body: JSON.stringify({})
             });
 
+            const wakeText = await wakeResponse.text();
+            debugPi('wake.response', {
+                status: wakeResponse.status,
+                ok: wakeResponse.ok,
+                body: wakeText
+            });
+
             if (!wakeResponse.ok) {
-                const errText = await wakeResponse.text();
-                throw new Error(`Failed to wake Pi server (HTTP ${wakeResponse.status}): ${errText}`);
+                throw new Error(`Failed to wake Pi server (HTTP ${wakeResponse.status}): ${wakeText}`);
             }
 
             // Wait for server to stabilise
@@ -141,7 +165,9 @@
             formData.append('laptop_ip', window.location.hostname || 'localhost');
 
             // ✅ FIX: Add 'Accept' header so upload_server.py returns JSON
-            const uploadResponse = await fetch(getPiUploadUrl(), {
+            const uploadUrl = getPiUploadUrl();
+            debugPi('upload.request', { url: uploadUrl, method: 'POST' });
+            const uploadResponse = await fetch(uploadUrl, {
                 method: 'POST',
                 headers: { 'Accept': 'application/json' },
                 body: formData
@@ -149,11 +175,23 @@
                 //       the browser must set it automatically with the boundary
             });
 
+            const uploadTextRaw = await uploadResponse.text();
+            debugPi('upload.response', {
+                status: uploadResponse.status,
+                ok: uploadResponse.ok,
+                body: uploadTextRaw
+            });
+
             if (!uploadResponse.ok) {
                 throw new Error(`Upload failed (HTTP ${uploadResponse.status}) — check upload server on port 5000`);
             }
 
-            const uploadResult = await uploadResponse.json();
+            let uploadResult;
+            try {
+                uploadResult = JSON.parse(uploadTextRaw);
+            } catch {
+                throw new Error(`Upload returned non-JSON response: ${uploadTextRaw.slice(0, 300)}`);
+            }
 
             if (!uploadResult.success) {
                 throw new Error(uploadResult.message || 'Upload server returned failure');
@@ -164,13 +202,21 @@
             uploadHint.textContent = 'Shutting down Pi upload server...';
 
             // ✅ FIX: Add headers + body here too
-            await fetch(getPiShutdownUrl(), {
+            const shutdownUrl = getPiShutdownUrl();
+            debugPi('shutdown.request', { url: shutdownUrl, method: 'POST' });
+            const shutdownResponse = await fetch(shutdownUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
                 body: JSON.stringify({})
+            });
+            const shutdownText = await shutdownResponse.text();
+            debugPi('shutdown.response', {
+                status: shutdownResponse.status,
+                ok: shutdownResponse.ok,
+                body: shutdownText
             });
 
             // ── Success UI ──
@@ -197,6 +243,10 @@
             }, 3000);
 
         } catch (error) {
+            debugPi('upload.flow.error', {
+                message: error.message,
+                stack: error.stack
+            });
             console.error('❌ Error:', error);
             uploadArea.classList.remove('uploading');
             uploadIcon.className = 'fas fa-exclamation-circle upload-icon';

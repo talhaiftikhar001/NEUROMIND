@@ -25,6 +25,7 @@ AUTOENCODER_SCRIPT = '/home/neuromind/Neuromind/Codes/Auto.py'
 CLASSIFICATION_WORKDIR = '/home/neuromind/Neuromind/Codes'
 AUTOENCODER_WORKDIR = '/home/neuromind/Neuromind/Codes'
 OUTPUT_FOLDER = '/home/neuromind/Neuromind/Codes/output'
+UPLOAD_SERVER_PORT = 5000
 
 # NEW: CombinedEEGHandler configuration
 HANDLER_PATH = '/home/neuromind/Downloads/combined_handler_ds_abnormal_control'
@@ -54,7 +55,15 @@ ae_lock = threading.Lock()
 # HELPERS
 # ===============================
 def is_server_running():
-    """Check if upload server is actually running on port 5000"""
+    """Check if upload server is running by PID or by listening port."""
+    try:
+        # Robust readiness check: the upload server may fork/reload into a child PID.
+        for conn in psutil.net_connections(kind='inet'):
+            if conn.status == 'LISTEN' and conn.laddr and conn.laddr.port == UPLOAD_SERVER_PORT:
+                return True
+    except Exception as e:
+        print(f"Port check warning: {e}")
+
     if os.path.exists(UPLOAD_SERVER_PID_FILE):
         try:
             with open(UPLOAD_SERVER_PID_FILE, 'r') as f:
@@ -63,8 +72,10 @@ def is_server_running():
             if psutil.pid_exists(pid):
                 proc = psutil.Process(pid)
                 for conn in proc.connections():
-                    if conn.laddr.port == 5000 and conn.status == 'LISTEN':
+                    if conn.laddr.port == UPLOAD_SERVER_PORT and conn.status == 'LISTEN':
                         return True
+                # Parent may still be alive while child handles the listener.
+                return proc.is_running()
             return False
         except Exception as e:
             print(f"Error checking server: {e}")
@@ -274,7 +285,7 @@ def wake():
         with open(UPLOAD_SERVER_PID_FILE, 'w') as f:
             f.write(str(process.pid))
 
-        if wait_for_server(timeout=10):
+        if wait_for_server(timeout=20):
             print(f"✅ Upload server started successfully (PID: {process.pid})")
             return jsonify({
                 'success': True,
@@ -282,10 +293,19 @@ def wake():
                 'pid': process.pid
             }), 200
         else:
+            stderr_tail = ''
+            if process.poll() is not None:
+                try:
+                    _, stderr_data = process.communicate(timeout=1)
+                    stderr_tail = (stderr_data or '').strip()
+                except Exception:
+                    stderr_tail = ''
+
             print("⚠️ Upload server started but not responding")
             return jsonify({
                 'success': False,
-                'message': 'Upload server started but not responding'
+                'message': 'Upload server started but not responding',
+                'details': stderr_tail or f'No listener detected on port {UPLOAD_SERVER_PORT}'
             }), 500
 
     except Exception as e:
