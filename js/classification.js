@@ -159,20 +159,6 @@
                 throw new Error(uploadResult.message || 'Upload server returned failure');
             }
 
-            // ── STEP 3: Shutdown upload server ──
-            uploadText.textContent = 'Upload Complete!';
-            uploadHint.textContent = 'Shutting down Pi upload server...';
-
-            // ✅ FIX: Add headers + body here too
-            await fetch(getPiShutdownUrl(), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({})
-            });
-
             // ── Success UI ──
             uploadArea.classList.remove('uploading');
             uploadArea.classList.add('success');
@@ -189,8 +175,8 @@
                 uploadArea.classList.remove('success');
                 uploadIcon.className = 'fas fa-cloud-upload-alt upload-icon';
                 uploadIcon.style.color = '#38bdf8';
-                uploadText.textContent = 'Click to Upload EEG/MRI Files';
-                uploadHint.textContent = 'Supported: .edf, .csv, .nii, .jpg';
+                uploadText.textContent = 'Click to Upload EEG Files';
+                uploadHint.textContent = 'Supported: .edf';
                 statusBox.className = 'alert-box info';
                 statusMessage.innerHTML = '<strong>Ready:</strong> Select a file to upload to Raspberry Pi';
                 e.target.value = '';
