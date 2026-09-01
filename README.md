@@ -1,6 +1,6 @@
 # NeuroMind - Neurological Diagnostic Portal
 
-A web-based medical portal for doctors to manage patient records and perform neurological diagnostics using machine learning models. The system integrates with Raspberry Pi for real-time EEG/MRI data analysis.
+A web-based medical portal for doctors to manage patient records and perform neurological diagnostics using machine learning models. The system integrates with Raspberry Pi for real-time EEG/MRI data acquisition and analysis.
 
 ## Features
 
@@ -46,7 +46,7 @@ FYP Website/
 │   │   ├── doctors.js      # Doctor management routes
 │   │   └── patients.js     # Patient CRUD routes
 │   ├── server.js           # Express server entry point
-│   └── package.json
+│   │   └── package.json
 ├── css/
 │   ├── dashboard.css
 │   ├── login.css
@@ -292,3 +292,10 @@ This project was developed as a Final Year Project (FYP).
 ## Authors
 
 NeuroMind Development Team
+
+## Supplementary Files
+
+The following Google Drive links were requested to be added to this README:
+
+- https://drive.google.com/file/d/1iHFBfWyk9mM86KLQGzDRafDgWZo9nsud/view?usp=sharing
+- https://drive.google.com/file/d/1tWnlu3j6W32g1qjDTFz2fjruS_qBH2Rv/view?usp=sharing
