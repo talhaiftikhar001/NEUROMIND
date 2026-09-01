@@ -295,7 +295,12 @@ NeuroMind Development Team
 
 ## Supplementary Files
 
-The following Google Drive links were requested to be added to this README:
+- Project Report — Final project report (PDF) containing problem statement, methodology, model details, evaluation metrics, and conclusions. View on Google Drive: [Project Report (Google Drive)](https://drive.google.com/file/d/1iHFBfWyk9mM86KLQGzDRafDgWZo9nsud/view?usp=sharing)
 
-- https://drive.google.com/file/d/1iHFBfWyk9mM86KLQGzDRafDgWZo9nsud/view?usp=sharing
-- https://drive.google.com/file/d/1tWnlu3j6W32g1qjDTFz2fjruS_qBH2Rv/view?usp=sharing
+  Short description: Contains the written report, architecture diagrams, training details, and quantitative results used in the FYP submission.
+
+- Demo Video & Supporting Data — A demonstration video showing the application in use and example data files used for testing. View on Google Drive: [Demo Video & Data (Google Drive)](https://drive.google.com/file/d/1tWnlu3j6W32g1qjDTFz2fjruS_qBH2Rv/view?usp=sharing)
+
+  Short description: Includes a walkthrough video of the UI, sample EEG/MRI files, and any auxiliary resources referenced in the report.
+
+Note: These links point to files hosted on Google Drive. If you encounter permission errors when opening them, make sure the files are shared publicly or with the appropriate users.
