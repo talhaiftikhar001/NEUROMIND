@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/eeg-live.css">
     <link rel="stylesheet" href="/css/pi-connect.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 </head>
 <body>
 
@@ -81,147 +81,6 @@
             </div>
         </div>
 
-        <!-- Signal Display -->
-        <div class="signal-container">
-            <div class="signal-header">
-                <h3><i class="fas fa-brain"></i> 8-Channel EEG Display</h3>
-                <div class="signal-controls">
-                    <select class="signal-select" id="displayMode">
-                        <option value="all">All Channels</option>
-                        <option value="1-4">Channels 1-4</option>
-                        <option value="5-8">Channels 5-8</option>
-                    </select>
-                    <select class="signal-select" id="timeWindow">
-                        <option value="5">5 sec window</option>
-                        <option value="10" selected>10 sec window</option>
-                        <option value="30">30 sec window</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="channels-grid" id="channelsGrid">
-                <!-- Channel 1 -->
-                <div class="channel-card" data-channel="1">
-                    <div class="channel-header">
-                        <span class="channel-name">CH1 - Fp1</span>
-                        <span class="channel-value" id="ch1Value">0.00 uV</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="chart1"></canvas>
-                    </div>
-                </div>
-
-                <!-- Channel 2 -->
-                <div class="channel-card" data-channel="2">
-                    <div class="channel-header">
-                        <span class="channel-name">CH2 - Fp2</span>
-                        <span class="channel-value" id="ch2Value">0.00 uV</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="chart2"></canvas>
-                    </div>
-                </div>
-
-                <!-- Channel 3 -->
-                <div class="channel-card" data-channel="3">
-                    <div class="channel-header">
-                        <span class="channel-name">CH3 - C3</span>
-                        <span class="channel-value" id="ch3Value">0.00 uV</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="chart3"></canvas>
-                    </div>
-                </div>
-
-                <!-- Channel 4 -->
-                <div class="channel-card" data-channel="4">
-                    <div class="channel-header">
-                        <span class="channel-name">CH4 - C4</span>
-                        <span class="channel-value" id="ch4Value">0.00 uV</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="chart4"></canvas>
-                    </div>
-                </div>
-
-                <!-- Channel 5 -->
-                <div class="channel-card" data-channel="5">
-                    <div class="channel-header">
-                        <span class="channel-name">CH5 - P3</span>
-                        <span class="channel-value" id="ch5Value">0.00 uV</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="chart5"></canvas>
-                    </div>
-                </div>
-
-                <!-- Channel 6 -->
-                <div class="channel-card" data-channel="6">
-                    <div class="channel-header">
-                        <span class="channel-name">CH6 - P4</span>
-                        <span class="channel-value" id="ch6Value">0.00 uV</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="chart6"></canvas>
-                    </div>
-                </div>
-
-                <!-- Channel 7 -->
-                <div class="channel-card" data-channel="7">
-                    <div class="channel-header">
-                        <span class="channel-name">CH7 - O1</span>
-                        <span class="channel-value" id="ch7Value">0.00 uV</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="chart7"></canvas>
-                    </div>
-                </div>
-
-                <!-- Channel 8 -->
-                <div class="channel-card" data-channel="8">
-                    <div class="channel-header">
-                        <span class="channel-name">CH8 - O2</span>
-                        <span class="channel-value" id="ch8Value">0.00 uV</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="chart8"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Analysis Actions -->
-        <div class="analysis-actions">
-            <h3><i class="fas fa-microscope"></i> Analysis Tools</h3>
-            <div class="action-cards">
-                <div class="action-card" onclick="goToClassification()">
-                    <div class="action-icon classification">
-                        <i class="fas fa-project-diagram"></i>
-                    </div>
-                    <div class="action-content">
-                        <h4>Classification Model</h4>
-                        <p>Identify seizure types using pattern recognition on recorded EEG data</p>
-                    </div>
-                    <div class="action-arrow">
-                        <i class="fas fa-arrow-right"></i>
-                    </div>
-                </div>
-
-                <div class="action-card" onclick="goToAutoencoder()">
-                    <div class="action-icon autoencoder">
-                        <i class="fas fa-wave-square"></i>
-                    </div>
-                    <div class="action-content">
-                        <h4>Autoencoder Analysis</h4>
-                        <p>Detect anomalies in brain signals using deep learning models</p>
-                    </div>
-                    <div class="action-arrow">
-                        <i class="fas fa-arrow-right"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Recording Status -->
         <div class="recording-panel" id="recordingPanel" style="display: none;">
             <div class="recording-indicator">
@@ -235,6 +94,15 @@
             <button class="btn-save" onclick="saveRecording()">
                 <i class="fas fa-save"></i> Save Recording
             </button>
+        </div>
+
+        <!-- Inference Results -->
+        <div class="inference-results" id="inferenceResultsPanel">
+            <h3><i class="fas fa-poll"></i> Session Inference Results</h3>
+            <div id="inferenceResultsContent">
+                <span class="inference-waiting"><i class="fas fa-clock"></i> Waiting for recording to finish... click "Start Stream" to begin.</span>
+            </div>
+            <div id="inferenceTags"></div>
         </div>
     </main>
 

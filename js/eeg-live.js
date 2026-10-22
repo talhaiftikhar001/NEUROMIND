@@ -83,8 +83,6 @@ const EEGLive = {
                         },
                         y: {
                             display: true,
-                            min: -100,
-                            max: 100,
                             grid: {
                                 color: 'rgba(139, 92, 246, 0.1)'
                             },
@@ -340,43 +338,222 @@ const EEGLive = {
         } else {
             alert(message);
         }
+    },
+
+    // Poll Pi until recording is done, then load EDF data
+    _pollRecording(ip) {
+        let pollCount = 0;
+        const resultsPanel = document.getElementById('inferenceResultsPanel');
+        const resultsContent = document.getElementById('inferenceResultsContent');
+        const tagsContainer = document.getElementById('inferenceTags');
+
+        if (resultsPanel) {
+            resultsPanel.style.display = 'block';
+            resultsContent.innerHTML = '<span class="inference-waiting"><i class="fas fa-circle-notch fa-spin"></i> Connecting to Pi... initiated recording sequence.</span>';
+            tagsContainer.innerHTML = '';
+        }
+
+        const interval = setInterval(async () => {
+            pollCount++;
+            try {
+                const resp = await fetch(`/pi-eeg-status?ip=${ip}`);
+                const status = await resp.json();
+
+                if (resultsContent && !status.done) {
+                    resultsContent.innerHTML = `<span class="inference-waiting"><i class="fas fa-circle-notch fa-spin"></i> Recording in progress... (tick ${pollCount}) &mdash; Pi is actively processing the session.</span>`;
+                }
+
+                if (status.done) {
+                    clearInterval(interval);
+                    this.config.streaming = false;
+                    this.updateButtonStates();
+
+                    // Display Inference Results from Python STDOUT
+                    if (resultsPanel) {
+                        resultsPanel.style.display = 'block';
+                        tagsContainer.innerHTML = '';
+                        if (status.output) {
+                            resultsContent.innerHTML = this._renderInferenceOutput(status.output);
+
+                            // Extract chunk labels for tag badges
+                            const chunkLabelMatch = status.output.match(/Chunk Labels:\s*(.+)/);
+                            if (chunkLabelMatch) {
+                                chunkLabelMatch[1].split(',').forEach(part => {
+                                    const label = part.trim();
+                                    if (label) {
+                                        const badge = document.createElement('span');
+                                        badge.className = 'inference-chunk-tag';
+                                        badge.textContent = label;
+                                        tagsContainer.appendChild(badge);
+                                    }
+                                });
+                            }
+                            if (!tagsContainer.children.length) {
+                                tagsContainer.innerHTML = '<span class="inference-waiting">No chunk labels detected.</span>';
+                            }
+                        } else if (!status.success) {
+                            resultsContent.innerHTML = `<span class="inference-error"><i class="fas fa-exclamation-triangle"></i> Recording Failed: ${status.error || 'No output returned'}</span>`;
+                        } else {
+                            resultsContent.innerHTML = '<span class="inference-waiting">Session finished but no output was returned.</span>';
+                        }
+                    }
+
+                    if (status.success) {
+                        this._loadEdfData(ip);
+                    } else {
+                        this.showError('Recording failed: ' + (status.error || 'Unknown error'));
+                        this.updateConnectionStatus('disconnected');
+                        const piStatusInfo = document.getElementById('piStatusInfo');
+                        if (piStatusInfo) piStatusInfo.textContent = 'Error';
+                    }
+                }
+            } catch (err) {
+                clearInterval(interval);
+                this.config.streaming = false;
+                this.updateButtonStates();
+                this.showError('Lost contact with Pi: ' + err.message);
+                
+                if (resultsContent) {
+                    resultsContent.innerHTML = `<span style="color: #ef4444;">Connection Error:</span><br>${err.message}`;
+                }
+            }
+        }, 2000);
+    },
+
+    // Parse inference output text into structured HTML
+    _renderInferenceOutput(text) {
+        const parse = (key) => {
+            const m = text.match(new RegExp(key + ':\\s*(.+)'));
+            return m ? m[1].trim() : null;
+        };
+
+        const diagnosis   = parse('Final Diagnosis');
+        const session     = parse('Session');
+        const chunks      = parse('Chunks Processed');
+        const votes       = parse('Chunk Votes');
+        const stage1      = parse('Avg Stage-1 Probs');
+        const stage2      = parse('Avg Stage-2 Probs');
+
+        let html = '';
+
+        if (diagnosis) {
+            html += `
+            <div class="inference-diagnosis-banner">
+                <div>
+                    <div class="inference-diagnosis-label">Final Diagnosis</div>
+                    <div class="inference-diagnosis-value">${diagnosis}</div>
+                </div>
+            </div>`;
+        }
+
+        const stats = [];
+        if (session)  stats.push({ label: 'Session', value: session.replace('→', '&rarr;') });
+        if (chunks)   stats.push({ label: 'Chunks Processed', value: chunks });
+        if (votes)    stats.push({ label: 'Chunk Votes', value: votes });
+        if (stage1)   stats.push({ label: 'Avg Stage-1 Probs', value: stage1 });
+        if (stage2)   stats.push({ label: 'Avg Stage-2 Probs', value: stage2 });
+
+        if (stats.length) {
+            html += '<div class="inference-stats-grid">';
+            stats.forEach(s => {
+                html += `<div class="inference-stat-item">
+                    <div class="inference-stat-label">${s.label}</div>
+                    <div class="inference-stat-value">${s.value}</div>
+                </div>`;
+            });
+            html += '</div>';
+        }
+
+        return html || `<span class="inference-waiting">${text}</span>`;
+    },
+
+    // Fetch EDF channel data from Pi and render in charts
+    async _loadEdfData(ip) {
+        const piStatusInfo = document.getElementById('piStatusInfo');
+        if (piStatusInfo) { piStatusInfo.textContent = 'Loading data...'; piStatusInfo.style.color = '#f59e0b'; }
+
+        try {
+            const resp = await fetch(`/pi-eeg-data?ip=${ip}`);
+            const result = await resp.json();
+
+            if (!result.success) {
+                this.showError('Failed to read EDF: ' + result.error);
+                return;
+            }
+
+            // Populate charts with EDF channel data
+            result.channels.forEach((ch, i) => {
+                if (i >= this.config.channels) return;
+                this.dataBuffers[i] = ch.data;
+
+                const valueEl = document.getElementById(`ch${i + 1}Value`);
+                if (valueEl) {
+                    const last = ch.data[ch.data.length - 1];
+                    valueEl.textContent = `${last.toFixed(2)} uV`;
+                }
+            });
+
+            this.totalDataPoints = result.channels[0] ? result.channels[0].data.length : 0;
+            const dataPointsEl = document.getElementById('dataPoints');
+            if (dataPointsEl) dataPointsEl.textContent = this.totalDataPoints.toLocaleString();
+
+            this.updateCharts();
+            this.updateConnectionStatus('connected');
+
+            if (piStatusInfo) { piStatusInfo.textContent = `Done (${result.duration ? result.duration.toFixed(1) + 's' : ''})`; piStatusInfo.style.color = '#22c55e'; }
+            this.showSuccess('EEG data loaded — ' + result.channels.length + ' channels');
+
+        } catch (err) {
+            this.showError('Could not load EDF data: ' + err.message);
+        }
     }
 };
 
 // Global functions for button handlers
-function startStream() {
-    if (!EEGLive.config.connected) {
-        if (!EEGLive.connectWebSocket()) {
-            return;
-        }
+async function startStream() {
+    if (typeof PiConnect === 'undefined' || !PiConnect.config.ip) {
+        EEGLive.showError('Please connect to Raspberry Pi first');
+        return;
     }
 
-    // Send start command to Pi
-    if (EEGLive.ws && EEGLive.ws.readyState === WebSocket.OPEN) {
-        EEGLive.ws.send(JSON.stringify({ command: 'start' }));
+    const ip = PiConnect.config.ip;
+    const btnStart = document.getElementById('btnStart');
+    const btnStop = document.getElementById('btnStop');
+    const piStatusInfo = document.getElementById('piStatusInfo');
+
+    btnStart.disabled = true;
+    btnStop.disabled = false;
+    EEGLive.updateConnectionStatus('connecting');
+    if (piStatusInfo) { piStatusInfo.textContent = 'Recording...'; piStatusInfo.style.color = '#f59e0b'; }
+
+    try {
+        const resp = await fetch(`/pi-eeg-start?ip=${ip}`, { method: 'POST' });
+        const data = await resp.json();
+
+        if (!data.success) {
+            EEGLive.showError('Failed to start recording: ' + (data.error || data.message));
+            btnStart.disabled = false;
+            btnStop.disabled = true;
+            EEGLive.updateConnectionStatus('disconnected');
+            return;
+        }
+
         EEGLive.config.streaming = true;
-        EEGLive.updateButtonStates();
-        EEGLive.showSuccess('Stream started');
-    } else {
-        // Wait for connection then start
-        setTimeout(() => {
-            if (EEGLive.ws && EEGLive.ws.readyState === WebSocket.OPEN) {
-                EEGLive.ws.send(JSON.stringify({ command: 'start' }));
-                EEGLive.config.streaming = true;
-                EEGLive.updateButtonStates();
-                EEGLive.showSuccess('Stream started');
-            }
-        }, 1000);
+        EEGLive.showSuccess('Recording started on Pi — waiting for EDF...');
+        EEGLive._pollRecording(ip);
+
+    } catch (err) {
+        EEGLive.showError('Could not reach Pi: ' + err.message);
+        btnStart.disabled = false;
+        btnStop.disabled = true;
+        EEGLive.updateConnectionStatus('disconnected');
     }
 }
 
 function stopStream() {
-    if (EEGLive.ws && EEGLive.ws.readyState === WebSocket.OPEN) {
-        EEGLive.ws.send(JSON.stringify({ command: 'stop' }));
-    }
-
     EEGLive.config.streaming = false;
     EEGLive.updateButtonStates();
+    EEGLive.updateConnectionStatus('disconnected');
     EEGLive.showSuccess('Stream stopped');
 }
 

@@ -166,11 +166,12 @@
 
             console.log('Reconstruction URL:', reconUrl);
 
-            // Hide dummy animation, show the "View Plot" button
+            // Hide dummy animation, load plot inline via Node.js proxy
             document.getElementById('ae-placeholder').style.display = 'none';
             const resultDiv = document.getElementById('ae-result');
             resultDiv.style.display = 'block';
-            document.getElementById('plot-link').href = reconUrl;
+            const piIp = getPiIp();
+            document.getElementById('plot-frame').src = `/pi-plot?ip=${piIp}`;
 
             hideOverlay();
         }
